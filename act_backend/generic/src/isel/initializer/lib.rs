@@ -302,14 +302,15 @@ fn add_expr_to_egraph(
             }
         }
 
-        HLOExpr::Exponential {
+        HLOExpr::UnaryOp {
             tsymbol,
             ttype,
             tshape,
             ttile,
+            op_name,
             source,
         } => {
-            add_exponential(tsymbol, ttype, tshape, ttile, source, egraph, table);
+            add_unary_op(tsymbol, ttype, tshape, ttile, op_name, source, egraph, table);
             if parsing_root {
                 add_root_operations(tsymbol, ttype, tshape, ttile, egraph, table, root);
             }
@@ -733,11 +734,12 @@ fn add_reduce(
     table.insert(tsymbol.to_string(), node);
 }
 
-fn add_exponential(
+fn add_unary_op(
     tsymbol: &str,
     ttype: &str,
     tshape: &str,
     _ttile: &str,
+    op_name: &str,
     source: &str,
     egraph: &mut EGraph<TensorOp, TensorInfo>,
     table: &mut EggSymbolTable,
@@ -745,7 +747,13 @@ fn add_exponential(
     let dtype: Dtype = ttype.into();
     let shape = shape_to_vec(tshape);
 
-    let node = egraph.add(TensorOp::OpExp([*table.get(source).unwrap()]));
+    let operand = [*table.get(source).unwrap()];
+    let node = egraph.add(match op_name {
+        "exponential" => TensorOp::OpExp(operand),
+        "rsqrt" => TensorOp::OpRsqrt(operand),
+        "negate" => TensorOp::OpNegate(operand),
+        _ => panic!("Unsupported unary operator: {}", op_name),
+    });
 
     egraph.set_analysis_data(
         node,

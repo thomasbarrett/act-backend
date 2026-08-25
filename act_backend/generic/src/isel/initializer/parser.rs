@@ -184,11 +184,12 @@ pub enum HLOExpr {
         dimensions: String,
         to_apply: String,
     },
-    Exponential {
+    UnaryOp {
         tsymbol: String,
         ttype: String,
         tshape: String,
         ttile: String,
+        op_name: String,
         source: String,
     },
 }
@@ -475,9 +476,10 @@ pub fn parse_hlo_expr(
                 to_apply,
             })
         }
-        "exponential" => {
+        "exponential" | "rsqrt" | "negate" => {
             let source = toperands.trim().to_string();
-            Some(HLOExpr::Exponential {
+            Some(HLOExpr::UnaryOp {
+                op_name: toperator.to_string(),
                 tsymbol: tsymbol.to_string(),
                 ttype: ttype.to_string(),
                 tshape: tshape.to_string(),

@@ -21,9 +21,11 @@ pub enum TensorOp {
     OpMaximum([Id; 2]),
     OpMinimum([Id; 2]),
     OpMultiply([Id; 2]),
+    OpNegate([Id; 1]),
     OpOr([Id; 2]),
     OpReduceSum(String, [Id; 1]),
     OpReshape(String, [Id; 1]),
+    OpRsqrt([Id; 1]),
     OpShiftLeft([Id; 2]),
     OpShiftRightLogical([Id; 2]),
     OpSlice(String, [Id; 1]),
@@ -53,9 +55,11 @@ impl TensorOp {
             TensorOp::OpMaximum(..) => 2,
             TensorOp::OpMinimum(..) => 2,
             TensorOp::OpMultiply(..) => 2,
+            TensorOp::OpNegate(..) => 1,
             TensorOp::OpOr(..) => 2,
             TensorOp::OpReduceSum(..) => 1,
             TensorOp::OpReshape(..) => 1,
+            TensorOp::OpRsqrt(..) => 1,
             TensorOp::OpShiftLeft(..) => 2,
             TensorOp::OpShiftRightLogical(..) => 2,
             TensorOp::OpSlice(..) => 1,
@@ -127,9 +131,11 @@ impl Language for TensorOp {
             TensorOp::OpMaximum(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpMinimum(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpMultiply(ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpNegate(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpRsqrt(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpShiftLeft(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpShiftRightLogical(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpSlice(_, ids) => LanguageChildren::as_slice(ids),
@@ -158,9 +164,11 @@ impl Language for TensorOp {
             TensorOp::OpMaximum(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpMinimum(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpMultiply(ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpNegate(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpRsqrt(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpShiftLeft(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpShiftRightLogical(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpSlice(_, ids) => LanguageChildren::as_mut_slice(ids),
@@ -261,6 +269,16 @@ impl FromOp for TensorOp {
                 let children = <[Id; 1] as LanguageChildren>::from_vec(children);
                 Ok(TensorOp::OpExp(children))
             }
+            op if op == "rsqrt" && <[Id; 1] as LanguageChildren>::can_be_length(children.len()) => {
+                let children = <[Id; 1] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpRsqrt(children))
+            }
+            op if op == "negate"
+                && <[Id; 1] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let children = <[Id; 1] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpNegate(children))
+            }
             op if op.split('_').next().unwrap() == "eye"
                 && <[Id; 0] as LanguageChildren>::can_be_length(children.len()) =>
             {
@@ -335,6 +353,8 @@ impl std::fmt::Display for TensorOp {
             TensorOp::OpDivide(_) => write!(f, "divide"),
             TensorOp::OpDot(_) => write!(f, "dot"),
             TensorOp::OpExp(_) => write!(f, "exponential"),
+            TensorOp::OpNegate(_) => write!(f, "negate"),
+            TensorOp::OpRsqrt(_) => write!(f, "rsqrt"),
             TensorOp::OpEye(data) => write!(f, "eye[ttype='{}']", data),
             TensorOp::OpMaximum(_) => write!(f, "maximum"),
             TensorOp::OpMinimum(_) => write!(f, "minimum"),
