@@ -174,7 +174,7 @@ pub enum HLOExpr {
         ttile: String,
         source: String,
     },
-    ReduceSum {
+    Reduce {
         tsymbol: String,
         ttype: String,
         tshape: String,
@@ -183,6 +183,7 @@ pub enum HLOExpr {
         constant: String,
         dimensions: String,
         to_apply: String,
+        reduce_kind: String,
     },
     UnaryOp {
         tsymbol: String,
@@ -194,29 +195,40 @@ pub enum HLOExpr {
     },
 }
 
-pub fn validate_region_exists(
+/// Resolve a reduction's `to_apply` region to the operator it applies.
+///
+/// A reduce region is a tiny computation over two scalars -- `add` for a sum,
+/// `maximum` for a max, and so on. Returns that operator's name so the caller
+/// can pick the matching IR node; panics if the region is anything this
+/// backend cannot represent, rather than silently treating it as a sum.
+/// @todo check shape here and type
+pub fn resolve_reduce_kind(
     region_name: &str,
     regions: &std::collections::HashMap<String, HLORegion>,
-) -> bool {
+) -> String {
     if !regions.contains_key(region_name) {
         panic!("Region {} does not exist", region_name);
     }
 
-    // region only contains parameter and add instructions
-    // @todo check shape here and type
+    let mut kind: Option<String> = None;
     for instruction in regions.get(region_name).unwrap().instructions.iter() {
         match instruction {
             HLOExpr::Parameter { .. } => {}
-            HLOExpr::BinaryOp { op_name, .. } if op_name == "add" => {}
+            HLOExpr::BinaryOp { op_name, .. }
+                if op_name == "add" || op_name == "maximum" || op_name == "minimum" =>
+            {
+                kind = Some(op_name.clone());
+            }
             _ => {
                 panic!(
-                    "Region {} contains non-parameter and non-add instructions",
+                    "Region {} applies an operator this backend cannot reduce with \
+                     (supported: add, maximum, minimum)",
                     region_name
                 );
             }
         }
     }
-    true
+    kind.unwrap_or_else(|| panic!("Region {} contains no reduction operator", region_name))
 }
 
 pub fn parse_hlo_expr(
@@ -450,7 +462,7 @@ pub fn parse_hlo_expr(
                 .unwrap_or("".to_string())
                 .to_string();
 
-            validate_region_exists(&to_apply, regions);
+            let reduce_kind = resolve_reduce_kind(&to_apply, regions);
 
             // Parse the operands to separate source and constant
             let operands: Vec<&str> = toperands.split(',').map(|s| s.trim()).collect();
@@ -465,7 +477,7 @@ pub fn parse_hlo_expr(
             let source = operands[0].to_string();
             let constant = operands[1].to_string();
 
-            Some(HLOExpr::ReduceSum {
+            Some(HLOExpr::Reduce {
                 tsymbol: tsymbol.to_string(),
                 ttype: ttype.to_string(),
                 tshape: tshape.to_string(),
@@ -474,6 +486,7 @@ pub fn parse_hlo_expr(
                 constant,
                 dimensions,
                 to_apply,
+                reduce_kind,
             })
         }
         "exponential" | "rsqrt" | "negate" => {

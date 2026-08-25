@@ -23,6 +23,8 @@ pub enum TensorOp {
     OpMultiply([Id; 2]),
     OpNegate([Id; 1]),
     OpOr([Id; 2]),
+    OpReduceMax(String, [Id; 1]),
+    OpReduceMin(String, [Id; 1]),
     OpReduceSum(String, [Id; 1]),
     OpReshape(String, [Id; 1]),
     OpRsqrt([Id; 1]),
@@ -57,6 +59,8 @@ impl TensorOp {
             TensorOp::OpMultiply(..) => 2,
             TensorOp::OpNegate(..) => 1,
             TensorOp::OpOr(..) => 2,
+            TensorOp::OpReduceMax(..) => 1,
+            TensorOp::OpReduceMin(..) => 1,
             TensorOp::OpReduceSum(..) => 1,
             TensorOp::OpReshape(..) => 1,
             TensorOp::OpRsqrt(..) => 1,
@@ -88,6 +92,12 @@ impl TensorOp {
             TensorOp::OpConstant(data) => *data = metadata.expect("OpConstant needs metadata!"),
             TensorOp::OpConvert(data, _) => *data = metadata.expect("OpConvert needs metadata!"),
             TensorOp::OpEye(data) => *data = metadata.expect("OpEye needs metadata!"),
+            TensorOp::OpReduceMax(data, _) => {
+                *data = metadata.expect("OpReduceMax needs metadata!")
+            }
+            TensorOp::OpReduceMin(data, _) => {
+                *data = metadata.expect("OpReduceMin needs metadata!")
+            }
             TensorOp::OpReduceSum(data, _) => {
                 *data = metadata.expect("OpReduceSum needs metadata!")
             }
@@ -133,6 +143,8 @@ impl Language for TensorOp {
             TensorOp::OpMultiply(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpNegate(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpReduceMax(_, ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpReduceMin(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpRsqrt(ids) => LanguageChildren::as_slice(ids),
@@ -166,6 +178,8 @@ impl Language for TensorOp {
             TensorOp::OpMultiply(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpNegate(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpReduceMax(_, ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpReduceMin(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpRsqrt(ids) => LanguageChildren::as_mut_slice(ids),
@@ -296,6 +310,20 @@ impl FromOp for TensorOp {
                 let children = <[Id; 1] as LanguageChildren>::from_vec(children);
                 Ok(TensorOp::OpReduceSum(data.to_string(), children))
             }
+            op if op.split('_').next().unwrap() == "reducemax"
+                && <[Id; 1] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let data = op.split('_').last().unwrap();
+                let children = <[Id; 1] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpReduceMax(data.to_string(), children))
+            }
+            op if op.split('_').next().unwrap() == "reducemin"
+                && <[Id; 1] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let data = op.split('_').last().unwrap();
+                let children = <[Id; 1] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpReduceMin(data.to_string(), children))
+            }
             op if op.split('_').next().unwrap() == "reshape"
                 && <[Id; 1] as LanguageChildren>::can_be_length(children.len()) =>
             {
@@ -360,6 +388,8 @@ impl std::fmt::Display for TensorOp {
             TensorOp::OpMinimum(_) => write!(f, "minimum"),
             TensorOp::OpMultiply(_) => write!(f, "multiply"),
             TensorOp::OpOr(_) => write!(f, "or"),
+            TensorOp::OpReduceMax(data, _) => write!(f, "reducemax[dims='{}']", data),
+            TensorOp::OpReduceMin(data, _) => write!(f, "reducemin[dims='{}']", data),
             TensorOp::OpReduceSum(data, _) => write!(f, "reduce[dims='{}']", data),
             TensorOp::OpReshape(data, _) => write!(f, "reshape[shape='{}']", data),
             TensorOp::OpShiftLeft(_) => write!(f, "shift_left"),

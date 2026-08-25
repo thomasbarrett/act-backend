@@ -114,6 +114,8 @@ fn op_repr_en(
         | TensorOp::OpMultiply(_)
         | TensorOp::OpNegate(_)
         | TensorOp::OpOr(_)
+        | TensorOp::OpReduceMax(_, _)
+        | TensorOp::OpReduceMin(_, _)
         | TensorOp::OpReduceSum(_, _)
         | TensorOp::OpReshape(_, _)
         | TensorOp::OpRsqrt(_)

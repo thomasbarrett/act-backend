@@ -46,6 +46,25 @@ class RewriteRuleVisitor(IDLV2Visitor):
         sorted_params = sorted(self.parameter_variables.items(), key=lambda x: x[0])
         return [var for param_num, var in sorted_params]
 
+    REDUCE_TOKENS = {'add': 'reduce_?', 'max': 'reducemax_?', 'min': 'reducemin_?'}
+
+    def reduce_token(self, ctx):
+        """The pattern token for a `reduce`, from its to_apply region name.
+
+        TAIDL spells these `to_apply=%max_bf16` / `%add_f32`, so the reduction
+        operator is the prefix of the region name.
+        """
+        if ctx.attributes():
+            for attribute in ctx.attributes().attribute():
+                if attribute.IDENTIFIER().getText() != 'to_apply':
+                    continue
+                region = attribute.attributeValue().getText().lstrip('%')
+                for prefix, token in self.REDUCE_TOKENS.items():
+                    if region.startswith(prefix):
+                        return token
+                raise ValueError(f"reduce: unsupported to_apply region '{region}'")
+        return 'reduce_?'
+
     def visitInstruction(self, ctx: IDLV2Parser.InstructionContext):
         lhs_name = ctx.IDENTIFIER().getText()
         op_name = ctx.OPERATION().getText()
@@ -89,6 +108,12 @@ class RewriteRuleVisitor(IDLV2Visitor):
                         operand_patterns.append(var)
 
         rewrite_op_name = self.OP_MAP.get(op_name, op_name)
+        if op_name == 'reduce':
+            # A generic `reduce` carries its operator in to_apply. Without this
+            # every reduction emitted the bare `reduce` token: it lost the `_?`
+            # metadata placeholder, and a max-reduction was indistinguishable
+            # from a sum.
+            rewrite_op_name = self.reduce_token(ctx)
         pattern = f"({rewrite_op_name} {' '.join(operand_patterns)})" if operand_patterns else f"({rewrite_op_name})"
 
         self.variable_definitions[lhs_name] = pattern

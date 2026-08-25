@@ -283,7 +283,7 @@ fn add_expr_to_egraph(
             }
         }
 
-        HLOExpr::ReduceSum {
+        HLOExpr::Reduce {
             tsymbol,
             ttype,
             tshape,
@@ -292,10 +292,11 @@ fn add_expr_to_egraph(
             constant,
             dimensions,
             to_apply,
+            reduce_kind,
         } => {
             add_reduce(
-                tsymbol, ttype, tshape, ttile, source, constant, dimensions, to_apply, egraph,
-                table,
+                tsymbol, ttype, tshape, ttile, source, constant, dimensions, to_apply,
+                reduce_kind, egraph, table,
             );
             if parsing_root {
                 add_root_operations(tsymbol, ttype, tshape, ttile, egraph, table, root);
@@ -712,16 +713,21 @@ fn add_reduce(
     _constant: &str,
     dimensions: &str,
     _to_apply: &str,
+    reduce_kind: &str,
     egraph: &mut EGraph<TensorOp, TensorInfo>,
     table: &mut EggSymbolTable,
 ) {
     let dtype: Dtype = ttype.into();
     let shape = shape_to_vec(tshape);
 
-    let node = egraph.add(TensorOp::OpReduceSum(
-        dimensions.to_string(),
-        [*table.get(source).unwrap()],
-    ));
+    let dims = dimensions.to_string();
+    let operand = [*table.get(source).unwrap()];
+    let node = egraph.add(match reduce_kind {
+        "add" => TensorOp::OpReduceSum(dims, operand),
+        "maximum" => TensorOp::OpReduceMax(dims, operand),
+        "minimum" => TensorOp::OpReduceMin(dims, operand),
+        _ => panic!("Unsupported reduction operator: {}", reduce_kind),
+    });
     egraph.set_analysis_data(
         node,
         TensorInfo {
