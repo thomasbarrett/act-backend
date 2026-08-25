@@ -80,6 +80,19 @@ fn op_repr(
     }
     visited.insert(eclass);
 
+    // A constant reports its element type as well as its value. The emitter
+    // has to turn this string back into actual bytes for HBM, and the value
+    // alone does not say how wide they are -- the eclass's analysis data does.
+    for en in egraph[eclass].nodes.iter() {
+        if let TensorOp::OpConstant(value) = en {
+            visited.remove(&eclass);
+            return Some(format!(
+                "constant[value='{}',dtype='{:?}']",
+                value, egraph[eclass].data.dtype
+            ));
+        }
+    }
+
     for en in egraph[eclass].nodes.iter() {
         if let Some(s) = op_repr_en(egraph, en, visited) {
             visited.remove(&eclass);

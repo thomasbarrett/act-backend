@@ -26,6 +26,63 @@ MetaDataInfo::MetaDataInfo(nlohmann::json &j) {
     throw std::runtime_error("dtype is required in metadata.json");
 }
 
+namespace {
+
+// Element width in bytes for a Dtype as Rust's Debug prints it.
+int64 dtype_width(const std::string &d) {
+  if (d == "U8" || d == "I8") return 1;
+  if (d == "U16" || d == "I16" || d == "FP16" || d == "BF16") return 2;
+  if (d == "U32" || d == "I32" || d == "FP32") return 4;
+  if (d == "U64" || d == "I64" || d == "FP64") return 8;
+  std::cerr << "Error: unknown constant dtype " << d << std::endl;
+  assert(false && "unknown constant dtype");
+  return 0;
+}
+
+std::string jnp_dtype(const std::string &d) {
+  if (d == "U8") return "jnp.uint8";
+  if (d == "I8") return "jnp.int8";
+  if (d == "U16") return "jnp.uint16";
+  if (d == "I16") return "jnp.int16";
+  if (d == "U32") return "jnp.uint32";
+  if (d == "I32") return "jnp.int32";
+  if (d == "U64") return "jnp.uint64";
+  if (d == "I64") return "jnp.int64";
+  if (d == "FP16") return "jnp.float16";
+  if (d == "FP32") return "jnp.float32";
+  if (d == "FP64") return "jnp.float64";
+  if (d == "BF16") return "jnp.bfloat16";
+  assert(false && "unknown constant dtype");
+  return "";
+}
+
+// Pull value and dtype out of a representation whose only leaf is a single
+// `constant[value='V',dtype='D']`. Returns false if it holds anything else,
+// including a second constant -- then it is not a splat.
+bool parse_splat_constant(const std::string &repr, std::string &value,
+                          std::string &dtype) {
+  const std::string tag = "constant[value='";
+  size_t start = repr.find(tag);
+  if (start == std::string::npos) return false;
+  if (repr.find(tag, start + 1) != std::string::npos) return false;
+
+  size_t vpos = start + tag.size();
+  size_t vend = repr.find('\'', vpos);
+  if (vend == std::string::npos) return false;
+  value = repr.substr(vpos, vend - vpos);
+
+  const std::string dtag = "dtype='";
+  size_t dpos = repr.find(dtag, vend);
+  if (dpos == std::string::npos) return false;
+  dpos += dtag.size();
+  size_t dend = repr.find('\'', dpos);
+  if (dend == std::string::npos) return false;
+  dtype = repr.substr(dpos, dend - dpos);
+  return !value.empty() && !dtype.empty();
+}
+
+} // namespace
+
 std::string MetaDataInfo::str() const {
   std::ostringstream oss;
   oss << "{'addr': " << addr << ", 'shape': (";
@@ -92,16 +149,42 @@ MetaData::MetaData(
                   << " not found in known constants." << std::endl;
         assert(false && "unknown constant tensor");
       }
-      if (known_constants.at(tensor) !=
-          "reshape[shape='256'](bitcvt(eye[ttype='16,16,I8']()))") {
-        std::cerr << "Warning: only constant tensor with value reshape(eye) is "
-                     "supported now, continue anyway."
-                  << std::endl;
+      const std::string &repr = known_constants.at(tensor);
+
+      if (repr == "reshape[shape='256'](bitcvt(eye[ttype='16,16,I8']()))") {
+        constant_info.emplace_back(MetaDataInfo(
+            tensor->get_offsets()[0]->Min(), tensor->get_sizes(), "jnp.uint8",
+            "jnp.reshape(jnp.eye(16, dtype=jnp.int8).astype(jnp.uint8), "
+            "(256,))"));
+        continue;
       }
 
-      constant_info.emplace_back(MetaDataInfo(
-          tensor->get_offsets()[0]->Min(), tensor->get_sizes(), "jnp.uint8",
-          "jnp.reshape(jnp.eye(16, dtype=jnp.int8).astype(jnp.uint8), (256,))"));
+      // A splat: some arrangement of broadcast/reshape/convert around a single
+      // constant. That covers every literal a real kernel carries -- 1/D, an
+      // epsilon, an attention scale. Emit it as the actual bytes, which means
+      // knowing the element type; op_repr records it alongside the value.
+      std::string value, dtype;
+      if (parse_splat_constant(repr, value, dtype)) {
+        int64 bytes = tensor->get_sizes()[0];
+        int64 width = dtype_width(dtype);
+        assert(bytes % width == 0 && "constant size is not a whole number of "
+                                     "elements");
+        std::ostringstream v;
+        v << "jax.lax.bitcast_convert_type(jnp.full((" << bytes / width
+          << ",), " << value << ", " << jnp_dtype(dtype) << "), jnp.uint8)"
+          << ".reshape(-1)";
+        constant_info.emplace_back(MetaDataInfo(tensor->get_offsets()[0]->Min(),
+                                                tensor->get_sizes(), "jnp.uint8",
+                                                v.str()));
+        continue;
+      }
+
+      // Anything else would have to be emitted as bytes we cannot derive.
+      // Refuse rather than substitute a placeholder: a wrong constant is a
+      // silently wrong kernel.
+      std::cerr << "Error: cannot emit constant tensor " << tensor->get_name()
+                << " with value " << repr << std::endl;
+      assert(false && "unsupported constant tensor value");
     }
   }
 
@@ -180,6 +263,7 @@ bool assembly_dump(char *outpath,
   outfile << "# PII number: " << pii_number << std::endl;
   outfile << "# Do not edit!" << std::endl << std::endl;
 
+  outfile << "import jax" << std::endl;
   outfile << "import jax.numpy as jnp" << std::endl << std::endl << std::endl;
 
   // Kernel function metadata
