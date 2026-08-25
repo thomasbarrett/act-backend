@@ -178,11 +178,15 @@ def map_dtype_to_rust(dtype):
         'u8': 'Dtype::U8',
         's32': 'Dtype::I32',
         'u32': 'Dtype::U32',
+        'f16': 'Dtype::FP16',
+        'f32': 'Dtype::FP32',
         'bf16': 'Dtype::BF16'
     }
 
     rust_type = dtype_map.get(dtype)
-    assert (rust_type != None)
+    assert rust_type is not None, (
+        f"TAIDL dtype '{dtype}' has no Rust IR mapping "
+        f"(supported: {', '.join(sorted(dtype_map))})")
     return rust_type
 
 
