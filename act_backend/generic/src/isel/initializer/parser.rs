@@ -304,7 +304,11 @@ pub fn parse_hlo_expr(
         | "or"
         | "shift-left"
         | "dot"
-        | "divide" => {
+        | "divide"
+        | "multiply"
+        | "subtract"
+        | "maximum"
+        | "minimum" => {
             // binary operators with two operands separated by comma
             let mut parts = toperands.split(',').map(|s| s.trim().to_string());
             let lhs = parts.next().unwrap_or_default();
