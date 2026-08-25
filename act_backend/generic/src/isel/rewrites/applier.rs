@@ -24,6 +24,7 @@ pub fn get_applier(rule: &str) -> Rewrite<TensorOp, TensorInfo> {
         "7" => precond_7,
         "8" => precond_8,
         "9" => precond_9,
+        "10" => precond_10,
         _ => panic!("No precondition function for rule {}!", name),
     };
     let metadata_fn = match name {
@@ -38,6 +39,7 @@ pub fn get_applier(rule: &str) -> Rewrite<TensorOp, TensorInfo> {
         "7" => metadata_7,
         "8" => metadata_8,
         "9" => metadata_9,
+        "10" => metadata_10,
         _ => panic!("No metadata function for rule {}!", name),
     };
     let set_shapes_fn = match name {
@@ -52,6 +54,7 @@ pub fn get_applier(rule: &str) -> Rewrite<TensorOp, TensorInfo> {
         "7" => set_shapes_7,
         "8" => set_shapes_8,
         "9" => set_shapes_9,
+        "10" => set_shapes_10,
         _ => panic!("No set_shapes function for rule {}!", name),
     };
     rewrite!(name; { lhs.clone() } => {

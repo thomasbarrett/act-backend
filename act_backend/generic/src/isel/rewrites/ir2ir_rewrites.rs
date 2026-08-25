@@ -416,3 +416,53 @@ pub fn set_shapes_9(egraph: &mut EGraph<TensorOp, TensorInfo>, lhs_eclasses: &Ve
     assert_eq!(rhs_eclasses.len(), 1);
     let _lhs_metadata: Vec<TensorInfo> = lhs_eclasses.iter().map(|id| egraph[*id].data.clone()).collect();
 }
+
+pub fn precond_10(egraph: &EGraph<TensorOp, TensorInfo>, lhs_eclasses: &Vec<Id>) -> bool {
+    // (maximum ?x (broadcast_? ?c)) => ?x, when ?c is negative infinity.
+    //
+    // XLA emits maximum(rowmax, -inf) when lowering softmax: a guard that is
+    // a no-op on the value but which sits between the reduce and whatever
+    // consumes it, so an accelerator's row-max instruction never matches.
+    //
+    // The discarded operand is bound as a variable rather than written as
+    // (constant_?) in the pattern, because a childless metadata node does not
+    // match anything -- the shipped QKV example has no constants in any rule,
+    // so that path is never exercised. Checking the eclass here is equivalent
+    // and actually works.
+    //
+    // lhs_eclasses is in post-order: [?x, ?c, broadcast, maximum].
+    assert_eq!(lhs_eclasses.len(), 4);
+    let lhs_metadata: Vec<TensorInfo> = lhs_eclasses.iter().map(|id| egraph[*id].data.clone()).collect();
+
+    // The result has to be exactly the surviving operand.
+    if lhs_metadata[3].dtype != lhs_metadata[0].dtype {
+        return false;
+    }
+    if lhs_metadata[3].shape != lhs_metadata[0].shape {
+        return false;
+    }
+
+    // Only -inf is an identity for maximum; any other constant is real work.
+    egraph[lhs_eclasses[1]].nodes.iter().any(|node| match node {
+        TensorOp::OpConstant(value) => {
+            let value = value.trim().trim_start_matches('+');
+            value.eq_ignore_ascii_case("-inf") || value.eq_ignore_ascii_case("-infinity")
+        }
+        _ => false,
+    })
+}
+
+pub fn metadata_10(
+    _egraph: &EGraph<TensorOp, TensorInfo>,
+    lhs_eclasses: &Vec<Id>,
+    _lhs_enodes: &Vec<Option<TensorOp>>,
+) -> Vec<Option<String>> {
+    assert_eq!(lhs_eclasses.len(), 4);
+    vec![None; 1]
+}
+
+pub fn set_shapes_10(_egraph: &mut EGraph<TensorOp, TensorInfo>, lhs_eclasses: &Vec<Id>, rhs_eclasses: &Vec<Id>) {
+    // The right-hand side is an eclass that already exists; nothing to annotate.
+    assert_eq!(lhs_eclasses.len(), 4);
+    assert_eq!(rhs_eclasses.len(), 1);
+}

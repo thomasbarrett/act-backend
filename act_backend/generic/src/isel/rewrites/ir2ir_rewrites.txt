@@ -8,3 +8,4 @@
 7: (?x) => (copy ?x)
 8: (broadcast_? ?x) => ?x
 9: (reshape_? (reshape_? ?x)) => ?x
+10: (maximum ?x (broadcast_? ?c)) => (?x)
