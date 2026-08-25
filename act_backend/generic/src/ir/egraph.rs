@@ -18,12 +18,16 @@ pub enum TensorOp {
     OpDot([Id; 2]),
     OpExp([Id; 1]),
     OpEye(String),
+    OpMaximum([Id; 2]),
+    OpMinimum([Id; 2]),
+    OpMultiply([Id; 2]),
     OpOr([Id; 2]),
     OpReduceSum(String, [Id; 1]),
     OpReshape(String, [Id; 1]),
     OpShiftLeft([Id; 2]),
     OpShiftRightLogical([Id; 2]),
     OpSlice(String, [Id; 1]),
+    OpSubtract([Id; 2]),
     OpXor([Id; 2]),
     OpTranspose(String, [Id; 1]),
     // other
@@ -46,12 +50,16 @@ impl TensorOp {
             TensorOp::OpDot(..) => 2,
             TensorOp::OpExp(..) => 1,
             TensorOp::OpEye(..) => 0,
+            TensorOp::OpMaximum(..) => 2,
+            TensorOp::OpMinimum(..) => 2,
+            TensorOp::OpMultiply(..) => 2,
             TensorOp::OpOr(..) => 2,
             TensorOp::OpReduceSum(..) => 1,
             TensorOp::OpReshape(..) => 1,
             TensorOp::OpShiftLeft(..) => 2,
             TensorOp::OpShiftRightLogical(..) => 2,
             TensorOp::OpSlice(..) => 1,
+            TensorOp::OpSubtract(..) => 2,
             TensorOp::OpXor(..) => 2,
             TensorOp::OpTranspose(..) => 1,
             TensorOp::DetectedConst(..) => 0,
@@ -116,12 +124,16 @@ impl Language for TensorOp {
             TensorOp::OpDot(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpExp(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpEye(_) => &[],
+            TensorOp::OpMaximum(ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpMinimum(ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpMultiply(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpShiftLeft(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpShiftRightLogical(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpSlice(_, ids) => LanguageChildren::as_slice(ids),
+            TensorOp::OpSubtract(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpXor(ids) => LanguageChildren::as_slice(ids),
             TensorOp::OpTranspose(_, ids) => LanguageChildren::as_slice(ids),
             TensorOp::DetectedConst(_) => &[],
@@ -143,12 +155,16 @@ impl Language for TensorOp {
             TensorOp::OpDot(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpExp(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpEye(_) => &mut [],
+            TensorOp::OpMaximum(ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpMinimum(ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpMultiply(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpOr(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReduceSum(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpReshape(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpShiftLeft(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpShiftRightLogical(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpSlice(_, ids) => LanguageChildren::as_mut_slice(ids),
+            TensorOp::OpSubtract(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpXor(ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::OpTranspose(_, ids) => LanguageChildren::as_mut_slice(ids),
             TensorOp::DetectedConst(_) => &mut [],
@@ -210,6 +226,30 @@ impl FromOp for TensorOp {
             {
                 let children = <[Id; 2] as LanguageChildren>::from_vec(children);
                 Ok(TensorOp::OpDivide(children))
+            }
+            op if op == "maximum"
+                && <[Id; 2] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let children = <[Id; 2] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpMaximum(children))
+            }
+            op if op == "minimum"
+                && <[Id; 2] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let children = <[Id; 2] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpMinimum(children))
+            }
+            op if op == "multiply"
+                && <[Id; 2] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let children = <[Id; 2] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpMultiply(children))
+            }
+            op if op == "subtract"
+                && <[Id; 2] as LanguageChildren>::can_be_length(children.len()) =>
+            {
+                let children = <[Id; 2] as LanguageChildren>::from_vec(children);
+                Ok(TensorOp::OpSubtract(children))
             }
             op if op == "dot" && <[Id; 2] as LanguageChildren>::can_be_length(children.len()) => {
                 let children = <[Id; 2] as LanguageChildren>::from_vec(children);
@@ -296,12 +336,16 @@ impl std::fmt::Display for TensorOp {
             TensorOp::OpDot(_) => write!(f, "dot"),
             TensorOp::OpExp(_) => write!(f, "exponential"),
             TensorOp::OpEye(data) => write!(f, "eye[ttype='{}']", data),
+            TensorOp::OpMaximum(_) => write!(f, "maximum"),
+            TensorOp::OpMinimum(_) => write!(f, "minimum"),
+            TensorOp::OpMultiply(_) => write!(f, "multiply"),
             TensorOp::OpOr(_) => write!(f, "or"),
             TensorOp::OpReduceSum(data, _) => write!(f, "reduce[dims='{}']", data),
             TensorOp::OpReshape(data, _) => write!(f, "reshape[shape='{}']", data),
             TensorOp::OpShiftLeft(_) => write!(f, "shift_left"),
             TensorOp::OpShiftRightLogical(_) => write!(f, "shift_right_logical"),
             TensorOp::OpSlice(data, _) => write!(f, "slice[slice='{}']", data), // e.g., "4:4" for 1D slice, "1:3;4:6" for 2D slice
+            TensorOp::OpSubtract(_) => write!(f, "subtract"),
             TensorOp::OpXor(_) => write!(f, "xor"),
             TensorOp::OpTranspose(data, _) => write!(f, "transpose[perm='{}']", data),
             TensorOp::DetectedConst(id) => write!(f, "DCC[{}]", id),

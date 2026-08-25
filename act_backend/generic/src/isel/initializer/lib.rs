@@ -518,7 +518,11 @@ fn add_binary_op(
         "or" => TensorOp::OpOr,
         "shift-left" => TensorOp::OpShiftLeft,
         "dot" => TensorOp::OpDot,
-        "divide" => TensorOp::OpDivide
+        "divide" => TensorOp::OpDivide,
+        "multiply" => TensorOp::OpMultiply,
+        "subtract" => TensorOp::OpSubtract,
+        "maximum" => TensorOp::OpMaximum,
+        "minimum" => TensorOp::OpMinimum
     });
 
     egraph.set_analysis_data(
