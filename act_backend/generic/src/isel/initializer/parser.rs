@@ -563,8 +563,27 @@ pub fn parse_hlo_module_header_hand(line: &str) -> Option<HloModuleHeader> {
 
     let entry_layout = &layout_part[..layout_end];
 
+    // Step 1b: Strip XLA's inline parameter-index comments. Once an entry
+    // computation has more than five parameters XLA annotates the layout as
+    // `..., /*index=5*/bf16[64,64]{1,0}, ...`, and the comment would otherwise
+    // stay glued to the dtype token, which then fails to parse.
+    let mut entry_layout = entry_layout.to_string();
+    while let Some(start) = entry_layout.find("/*") {
+        match entry_layout[start..].find("*/") {
+            Some(end) => {
+                let end_pos = start + end + 2;
+                entry_layout = format!(
+                    "{}{}",
+                    &entry_layout[..start],
+                    &entry_layout[end_pos..]
+                );
+            }
+            None => break,
+        }
+    }
+
     // Step 2: Remove layout specifications like {1,0}
-    let mut layout_cleaned = entry_layout.to_string();
+    let mut layout_cleaned = entry_layout;
     while let Some(start) = layout_cleaned.find('{') {
         if let Some(end) = layout_cleaned[start..].find('}') {
             let end_pos = start + end;
