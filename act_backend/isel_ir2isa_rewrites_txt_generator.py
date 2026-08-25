@@ -7,6 +7,7 @@ class RewriteRuleVisitor(IDLV2Visitor):
     OP_MAP = {
         'reshape': 'reshape_?', 'convert': 'convert_?', 'slice': 'slice_?',
         'transpose': 'transpose_?', 'broadcast': 'broadcast_?', 'concat': 'concat_?',
+        'concatenate': 'concat_?',
         'constant': 'constant_?', 'eye': 'eye_?',
         'bitcast_convert': 'bitcvt',
         'reduce_add': 'reduce_?',
